@@ -1,0 +1,30 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql
+    env_file:
+      - .env  # ✅ 從 .env 載入 MySQL 變數
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: micro-backend:dev         # ✅ 指定 image 名稱，避免 <none> image 出現
+    container_name: go-app
+    ports:
+      - "8088:8088"
+    volumes:
+      - .:/app                       # ✅ 掛載原始碼，支援 hot reload
+    env_file:
+      - .env                         # ✅ 載入所有環境變數供 Go 使用
+    depends_on:
+      - db
+
+volumes:
+  mysql_data: {}                     # ✅ MySQL 資料持久化

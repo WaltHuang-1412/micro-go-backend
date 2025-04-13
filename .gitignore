@@ -1,0 +1,36 @@
+# 可執行檔與 build 暫存
+main
+main.exe
+*.out
+*.test
+/tmp/
+tmp/
+
+# Logs
+*.log
+
+# Go modules cache
+vendor/
+
+# 編譯結果
+bin/
+dist/
+
+# IDE / 編輯器產生的檔案
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS 產物
+.DS_Store
+Thumbs.db
+
+# Air build cache
+.air/
+
+# 環境變數檔案（❌ 請勿提交）
+.env
+
+# Docker 資料卷（視情況可加）
+volumes/
