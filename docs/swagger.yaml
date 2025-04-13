@@ -1,0 +1,119 @@
+basePath: /api/v1
+definitions:
+  models.UserLoginInput:
+    properties:
+      email:
+        example: w@w.com
+        type: string
+      password:
+        example: "123456"
+        type: string
+    type: object
+  models.UserRegisterInput:
+    properties:
+      email:
+        example: w@w.com
+        type: string
+      password:
+        example: "123456"
+        type: string
+      username:
+        example: walter
+        type: string
+    type: object
+host: localhost:8088
+info:
+  contact: {}
+  description: 使用 JWT 的簡易用戶驗證 API
+  title: Micro Backend API
+  version: "1.0"
+paths:
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: 輸入 email 與密碼後登入並取得 JWT Token
+      parameters:
+      - description: 登入資訊
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserLoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 使用者登入
+      tags:
+      - Auth
+  /profile:
+    get:
+      description: 使用 JWT 取得當前登入者資訊
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取得個人資訊
+      tags:
+      - user
+  /register:
+    post:
+      consumes:
+      - application/json
+      description: 使用者註冊帳號
+      parameters:
+      - description: 使用者資料
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRegisterInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 註冊使用者
+      tags:
+      - Auth
+securityDefinitions:
+  BearerAuth:
+    description: 請輸入 JWT Token（格式：無需 Bearer 前綴）
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

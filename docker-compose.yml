@@ -10,7 +10,17 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
-
+  migrate:
+    image: migrate/migrate
+    container_name: db-migrate
+    depends_on:
+      - db
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "/wait-and-migrate.sh"]
+    volumes:
+      - ./migrations:/migrations
+      - ./scripts/wait-and-migrate.sh:/wait-and-migrate.sh
   app:
     build:
       context: .

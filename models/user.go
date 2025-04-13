@@ -5,6 +5,17 @@ import (
 	"time"
 )
 
+type UserRegisterInput struct {
+	Username string `json:"username" example:"walter"`
+	Email    string `json:"email" example:"w@w.com"`
+	Password string `json:"password" example:"123456"`
+}
+
+type UserLoginInput struct {
+	Email    string `json:"email" example:"w@w.com"`
+	Password string `json:"password" example:"123456"`
+}
+
 type User struct {
 	ID           int
 	Username     string

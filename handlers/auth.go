@@ -12,6 +12,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// Login godoc
+// @Summary      使用者登入
+// @Description  輸入 email 與密碼後登入並取得 JWT Token
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        login  body  models.UserLoginInput  true  "登入資訊"
+// @Success      200    {object}  map[string]string
+// @Failure      400    {object}  map[string]string
+// @Router       /login [post]
 func Login(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
@@ -37,8 +47,9 @@ func Login(db *sql.DB) gin.HandlerFunc {
 
 		// 🔐 建立 JWT token
 		claims := jwt.MapClaims{
-			"user_id": user.ID,
-			"exp":     time.Now().Add(time.Hour * 72).Unix(),
+			"user_id":  user.ID,
+			"username": user.Username,
+			"exp":      time.Now().Add(time.Hour * 72).Unix(),
 		}
 
 		token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -57,6 +68,16 @@ func Login(db *sql.DB) gin.HandlerFunc {
 	}
 }
 
+// Register godoc
+// @Summary      註冊使用者
+// @Description  使用者註冊帳號
+// @Tags         Auth
+// @Accept       json
+// @Produce      json
+// @Param        user  body  models.UserRegisterInput  true  "使用者資料"
+// @Success      200  {object}  map[string]string
+// @Failure      400  {object}  map[string]string
+// @Router       /register [post]
 func Register(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var input struct {
