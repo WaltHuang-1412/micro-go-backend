@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql
+    env_file:
+      - .env
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped           # ✅ 若 DB crash 自動重啟
+
+  migrate:
+    image: migrate/migrate
+    container_name: db-migrate
+    depends_on:
+      - db
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "/wait-and-migrate.sh"]
+    volumes:
+      - ./migrations:/migrations
+      - ./scripts/wait-and-migrate.sh:/wait-and-migrate.sh
+    restart: "no"                     # ✅ 跑一次就結束，避免無限重啟
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    image: micro-backend:prod         # ✅ 用 prod tag 比較明確
+    container_name: go-app
+    ports:
+      - "8088:8088"
+    # ✅ production 不建議掛載 volume（除非要 hot reload）
+    # volumes:
+    #   - .:/app
+    env_file:
+      - .env
+    depends_on:
+      - db
+    restart: unless-stopped           # ✅ 確保 server 掛掉會自動復原
+
+volumes:
+  mysql_data: {}

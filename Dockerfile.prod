@@ -1,0 +1,15 @@
+FROM golang:1.24.2
+
+WORKDIR /app
+
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+
+COPY . .
+
+# ⚙️ 建置正式執行檔
+RUN go build -o app .
+
+# ✅ 啟動正式編譯的可執行檔
+CMD ["./app"]
