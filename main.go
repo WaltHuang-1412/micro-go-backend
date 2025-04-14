@@ -83,6 +83,16 @@ func main() {
 		{
 			protected.GET("/profile", handlers.Profile())
 			fmt.Println("✅ /api/v1/profile (protected) route ready")
+
+			// ✅ plans 分組
+			plans := protected.Group("/plans")
+			{
+				sections := plans.Group("/sections")
+				{
+					sections.POST("", handlers.CreateSection(db))
+					fmt.Println("✅ /api/v1/plans/sections POST route ready")
+				}
+			}
 		}
 	}
 

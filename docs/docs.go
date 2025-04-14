@@ -61,6 +61,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/plans/sections": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "建立一個新的區塊（自動補上 sort_order）",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Plans"
+                ],
+                "summary": "建立新區塊（Section）",
+                "parameters": [
+                    {
+                        "description": "區塊資料",
+                        "name": "section",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CreateSectionInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/profile": {
             "get": {
                 "security": [
@@ -144,6 +202,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.CreateSectionInput": {
+            "type": "object",
+            "required": [
+                "title"
+            ],
+            "properties": {
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "models.UserLoginInput": {
             "type": "object",
             "properties": {
@@ -177,7 +246,6 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "請輸入 JWT Token（格式：無需 Bearer 前綴）",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

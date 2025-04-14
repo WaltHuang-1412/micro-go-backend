@@ -1,5 +1,12 @@
 basePath: /api/v1
 definitions:
+  models.CreateSectionInput:
+    properties:
+      title:
+        type: string
+    required:
+    - title
+    type: object
   models.UserLoginInput:
     properties:
       email:
@@ -58,6 +65,43 @@ paths:
       summary: 使用者登入
       tags:
       - Auth
+  /plans/sections:
+    post:
+      consumes:
+      - application/json
+      description: 建立一個新的區塊（自動補上 sort_order）
+      parameters:
+      - description: 區塊資料
+        in: body
+        name: section
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateSectionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 建立新區塊（Section）
+      tags:
+      - Plans
   /profile:
     get:
       description: 使用 JWT 取得當前登入者資訊
@@ -112,7 +156,6 @@ paths:
       - Auth
 securityDefinitions:
   BearerAuth:
-    description: 請輸入 JWT Token（格式：無需 Bearer 前綴）
     in: header
     name: Authorization
     type: apiKey
