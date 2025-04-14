@@ -51,6 +51,9 @@ DB_PASSWORD=your_db_password
 DB_NAME=app_db
 PORT=8088
 JWT_SECRET=your_jwt_secret_key
+FRONTEND_ORIGIN=https://walthuang-1412.github.io
+SWAGGER_HOST=localhost:8088
+SWAGGER_SCHEME=http
 ```
 
 > ✉️ 建議使用 `.env.example` 作為格式模板，並在 `.gitignore` 中掛上 `.env`，避免故意上傳到 GitHub
@@ -153,7 +156,7 @@ curl -X POST http://localhost:8088/api/v1/login \
 { "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6..." }
 ```
 
-### 🠍 取得個人資訊（JWT 驗證）
+### 🤍 取得個人資訊（JWT 驗證）
 ```bash
 curl -X GET http://localhost:8088/api/v1/profile \
   -H "Authorization: Bearer <token>"
@@ -161,7 +164,7 @@ curl -X GET http://localhost:8088/api/v1/profile \
 
 ---
 
-## 🛠 開發常用指令
+## 🛠 ️ 開發常用指令
 
 | 指令                            | 說明                          |
 |--------------------------------|-------------------------------|
@@ -183,14 +186,14 @@ curl -X GET http://localhost:8088/api/v1/profile \
 | `docker compose -f docker-compose.prod.yml down`                  | 停止正式服務（保留資料）           |
 | `docker compose -f docker-compose.prod.yml down -v`               | 停止並刪除資料 volume（重建資料）  |
 | `docker logs go-app`                                              | 查看正式服務 Log                    |
-| `curl http://<your_server_ip>:8088/swagger/index.html`            | 確認 Swagger 是否部署成功           |
+| `curl https://api.hex-studio.net/swagger/index.html`              | 確認 Swagger 是否部署成功           |
 
 > ✅ `-f` 是指定用 `docker-compose.prod.yml`，用來與 dev 隔離  
 > ✅ `-d` 代表 background mode，不會卡在端末機
 
 ---
 
-## 🛠 開發用 MySQL CLI 連線
+## 🛠️ 開發用 MySQL CLI 連線
 
 進入 MySQL container：
 ```bash
@@ -218,4 +221,3 @@ SELECT * FROM users;
 ---
 
 📬 若你需要加入更多 API、JWT 權限群組或自動 migration 機制，可參考進階章節或擴充分支。
-
