@@ -16,11 +16,11 @@ import (
 	"os"
 	"time"
 
-	"github.com/gin-contrib/cors" // ✅ 加入 CORS middleware 套件
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 
-	_ "github.com/Walter1412/micro-backend/docs" // 👈 swagger 文件產出後用的 import
+	"github.com/Walter1412/micro-backend/docs" // ✅ 引用 swagger docs
 	"github.com/Walter1412/micro-backend/handlers"
 	"github.com/Walter1412/micro-backend/middlewares"
 
@@ -29,14 +29,18 @@ import (
 )
 
 func main() {
+	// ✅ 設定 Swagger 變數
+	docs.SwaggerInfo.Host = os.Getenv("SWAGGER_HOST")
+	docs.SwaggerInfo.Schemes = []string{os.Getenv("SWAGGER_SCHEME")}
+
+	// 讀取 DB 設定
 	dbUser := os.Getenv("DB_USER")
 	dbPass := os.Getenv("DB_PASSWORD")
 	dbHost := os.Getenv("DB_HOST")
 	dbPort := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true",
-		dbUser, dbPass, dbHost, dbPort, dbName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
 
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
@@ -44,7 +48,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// 🔁 自動重試連線最多 10 次
+	// 自動重試 DB 連線
 	maxRetries := 10
 	for i := 1; i <= maxRetries; i++ {
 		if err := db.Ping(); err == nil {
@@ -54,17 +58,17 @@ func main() {
 			fmt.Printf("⏳ Waiting for DB... (attempt %d/%d)\n", i, maxRetries)
 			time.Sleep(2 * time.Second)
 		}
-
 		if i == maxRetries {
 			log.Fatal("❌ DB not reachable after retrying.")
 		}
 	}
 
 	r := gin.Default()
+	r.Use(middlewares.CORSMiddleware())
 
-	// ✅ 啟用 CORS middleware（允許所有來源）
+	// ✅ CORS 設定（開發用 *，正式環境記得限縮）
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"}, // 🔒 建議正式環境改成你的網域
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
 		ExposeHeaders:    []string{"Content-Length"},
@@ -72,11 +76,11 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	// ✅ 註冊 Swagger UI
+	// Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	fmt.Println("✅ Swagger UI route registered at /swagger/*any")
 
-	// ✅ API 路徑加上版本
+	// API 路由
 	api := r.Group("/api/v1")
 	{
 		api.POST("/register", handlers.Register(db))
@@ -100,6 +104,5 @@ func main() {
 
 	fmt.Println("🚀 Server running at http://localhost:" + port)
 	fmt.Println("🌐 Swagger UI available at http://localhost:" + port + "/swagger/index.html")
-
 	r.Run(":" + port)
 }
