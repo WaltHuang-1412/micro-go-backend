@@ -16,12 +16,14 @@ import (
 	"os"
 	"time"
 
+	"github.com/gin-contrib/cors" // ✅ 加入 CORS middleware 套件
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+
 	_ "github.com/Walter1412/micro-backend/docs" // 👈 swagger 文件產出後用的 import
 	"github.com/Walter1412/micro-backend/handlers"
 	"github.com/Walter1412/micro-backend/middlewares"
 
-	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -47,7 +49,7 @@ func main() {
 	for i := 1; i <= maxRetries; i++ {
 		if err := db.Ping(); err == nil {
 			fmt.Println("✅ Connected to DB!")
-			break // ❗連線成功就不再嘗試
+			break
 		} else {
 			fmt.Printf("⏳ Waiting for DB... (attempt %d/%d)\n", i, maxRetries)
 			time.Sleep(2 * time.Second)
@@ -59,6 +61,16 @@ func main() {
 	}
 
 	r := gin.Default()
+
+	// ✅ 啟用 CORS middleware（允許所有來源）
+	r.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"}, // 🔒 建議正式環境改成你的網域
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Authorization", "Content-Type"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 
 	// ✅ 註冊 Swagger UI
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
