@@ -89,8 +89,14 @@ func main() {
 			{
 				sections := plans.Group("/sections")
 				{
+					sections.GET("", handlers.GetSections(db))
+					fmt.Println("✅ /api/v1/plans/sections GET route ready")
 					sections.POST("", handlers.CreateSection(db))
 					fmt.Println("✅ /api/v1/plans/sections POST route ready")
+					sections.DELETE("/:id", handlers.DeleteSection(db))
+					fmt.Println("✅ /api/v1/plans/sections/:id DELETE route ready")
+					sections.PUT("/:id", handlers.UpdateSection(db))
+					fmt.Println("✅ /api/v1/sections PUT route ready")
 				}
 			}
 		}
