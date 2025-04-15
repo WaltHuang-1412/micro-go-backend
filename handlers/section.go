@@ -30,11 +30,7 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		userID, exists := c.Get("user_id")
-		if !exists {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
+		userID := c.GetInt64("user_id") // 🔐 確保是 int64，避免型別問題
 
 		// ✅ 取得目前使用者的最大 sort_order
 		var maxSort sql.NullInt64
@@ -50,7 +46,9 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 			newSort = int(maxSort.Int64) + 1
 		}
 
-		// ✅ 插入資料並加上 user_id
+		log.Printf("🧪 Creating section: user_id=%d, title=%s, sort_order=%d", userID, input.Title, newSort)
+
+		// ✅ 插入資料
 		res, err := db.Exec("INSERT INTO sections (user_id, title, sort_order) VALUES (?, ?, ?)", userID, input.Title, newSort)
 		if err != nil {
 			log.Printf("❌ Failed to insert section: %v", err)
@@ -59,7 +57,8 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 		}
 
 		insertedID, _ := res.LastInsertId()
-		log.Printf("✅ Section created: ID=%d, Title=%s, Sort=%d, UserID=%v", insertedID, input.Title, newSort, userID)
+		log.Printf("✅ Section created: ID=%d, Title=%s, Sort=%d, UserID=%d", insertedID, input.Title, newSort, userID)
+
 		c.JSON(http.StatusOK, gin.H{
 			"id":      insertedID,
 			"title":   input.Title,
@@ -340,7 +339,7 @@ func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 		}
 
 		for i, s := range sections {
-			// ✅ 確認 section 屬於該 user
+			// ✅ 檢查 section 是否屬於該使用者
 			var ownerID int64
 			err := tx.QueryRow("SELECT user_id FROM sections WHERE id = ?", s.ID).Scan(&ownerID)
 			if err != nil || ownerID != userID {
@@ -359,23 +358,24 @@ func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// ✅ 更新每個 task 的排序
+			// ✅ 處理每個 task
 			for j, t := range s.Tasks {
-				// 檢查 task 是否屬於該 section
-				var sectionID int64
-				err := tx.QueryRow("SELECT section_id FROM tasks WHERE id = ?", t.ID).Scan(&sectionID)
-				if err != nil || sectionID != s.ID {
+				// ✅ 檢查 task 是否存在，並取得原 section_id
+				var originalSectionID int64
+				err := tx.QueryRow("SELECT section_id FROM tasks WHERE id = ?", t.ID).Scan(&originalSectionID)
+				if err != nil {
 					tx.Rollback()
-					log.Printf("❌ Invalid task-section relation: task_id=%d, section_id=%d", t.ID, s.ID)
-					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task-section relationship"})
+					log.Printf("❌ Task not found: task_id=%d", t.ID)
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Task not found"})
 					return
 				}
 
-				_, err = tx.Exec("UPDATE tasks SET sort_order = ? WHERE id = ?", j+1, t.ID)
+				// ✅ 無論是否跨 section，一律更新 section_id + sort_order
+				_, err = tx.Exec("UPDATE tasks SET section_id = ?, sort_order = ? WHERE id = ?", s.ID, j+1, t.ID)
 				if err != nil {
 					tx.Rollback()
-					log.Printf("❌ Failed to update task sort_order: %v", err)
-					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task sort"})
+					log.Printf("❌ Failed to update task (id=%d) sort/section: %v", t.ID, err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
 					return
 				}
 			}
@@ -387,7 +387,7 @@ func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		log.Println("✅ Sort orders updated successfully")
+		log.Println("✅ Sort orders and task-section updated successfully")
 		c.JSON(http.StatusOK, gin.H{"message": "Sort orders updated"})
 	}
 }
