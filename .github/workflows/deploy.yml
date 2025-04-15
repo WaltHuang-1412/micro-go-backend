@@ -19,17 +19,6 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Clean up system (safe)
-        run: |
-          rm -rf ~/.cache/go-build || true
-          docker system prune -af || true
-          docker builder prune -af || true
-          sudo apt clean || true
-          sudo rm -rf /tmp/* || true
-          sudo rm -rf /var/log/*.gz || true
-          sudo journalctl --vacuum-time=2d || true
-          df -h
-
       - name: 🚀 Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
