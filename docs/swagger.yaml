@@ -35,6 +35,42 @@ definitions:
       updated_at:
         type: string
     type: object
+  models.SectionWithTasks:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      sort_order:
+        type: integer
+      tasks:
+        items:
+          $ref: '#/definitions/models.Task'
+        type: array
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.Task:
+    properties:
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      is_completed:
+        type: boolean
+      section_id:
+        type: integer
+      sort_order:
+        type: integer
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
   models.UpdateSectionInput:
     properties:
       title:
@@ -166,6 +202,66 @@ paths:
       security:
       - BearerAuth: []
       summary: 建立新區塊（Section）
+      tags:
+      - Plans
+  /plans/sections-with-tasks:
+    get:
+      description: 回傳每個區塊與其所屬任務，依照排序排列
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.SectionWithTasks'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 取得所有區塊（含任務）
+      tags:
+      - Plans
+    put:
+      consumes:
+      - application/json
+      description: 依據傳入資料更新 sections 與 tasks 的 sort_order（title/content 不會變動）
+      parameters:
+      - description: 排序資料
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/models.SectionWithTasks'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 批次更新區塊與任務排序
       tags:
       - Plans
   /plans/sections/{id}:

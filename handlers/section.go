@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/Walter1412/micro-backend/models"
 	"github.com/gin-gonic/gin"
@@ -174,5 +175,151 @@ func UpdateSection(db *sql.DB) gin.HandlerFunc {
 			"id":      id,
 			"title":   input.Title,
 		})
+	}
+}
+
+// GetSectionsWithTasks godoc
+// @Summary      取得所有區塊（含任務）
+// @Description  回傳每個區塊與其所屬任務，依照排序排列
+// @Tags         Plans
+// @Security     BearerAuth
+// @Success      200  {array}  models.SectionWithTasks
+// @Failure      500  {object}  map[string]string
+// @Router       /plans/sections-with-tasks [get]
+func GetSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 1️⃣ 查詢所有 sections
+		sectionRows, err := db.Query(`
+			SELECT id, title, sort_order, created_at, updated_at
+			FROM sections
+			ORDER BY sort_order ASC`)
+		if err != nil {
+			log.Printf("❌ Failed to query sections: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sections"})
+			return
+		}
+		defer sectionRows.Close()
+
+		sectionsMap := make(map[int64]*models.SectionWithTasks)
+		var sectionIDs []int64
+
+		for sectionRows.Next() {
+			var s models.SectionWithTasks
+			if err := sectionRows.Scan(&s.ID, &s.Title, &s.SortOrder, &s.CreatedAt, &s.UpdatedAt); err != nil {
+				log.Printf("❌ Failed to scan section: %v", err)
+				continue
+			}
+			s.Tasks = []models.Task{}
+			sectionsMap[s.ID] = &s
+			sectionIDs = append(sectionIDs, s.ID)
+		}
+
+		if len(sectionIDs) == 0 {
+			c.JSON(http.StatusOK, []models.SectionWithTasks{})
+			return
+		}
+
+		// 2️⃣ 查詢所有對應的 tasks
+		query, args := buildTaskQuery(sectionIDs)
+		taskRows, err := db.Query(query, args...)
+		if err != nil {
+			log.Printf("❌ Failed to query tasks: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch tasks"})
+			return
+		}
+		defer taskRows.Close()
+
+		for taskRows.Next() {
+			var t models.Task
+			if err := taskRows.Scan(&t.ID, &t.SectionID, &t.Content, &t.IsCompleted, &t.SortOrder, &t.CreatedAt, &t.UpdatedAt, &t.Title); err != nil {
+				log.Printf("❌ Failed to scan task: %v", err)
+				continue
+			}
+			if section, ok := sectionsMap[t.SectionID]; ok {
+				section.Tasks = append(section.Tasks, t)
+			}
+		}
+
+		// 3️⃣ 整理成 slice
+		var result []models.SectionWithTasks
+		for _, id := range sectionIDs {
+			result = append(result, *sectionsMap[id])
+		}
+
+		c.JSON(http.StatusOK, result)
+	}
+}
+
+func buildTaskQuery(sectionIDs []int64) (string, []interface{}) {
+	query := `
+		SELECT id, section_id, content, is_completed, sort_order, created_at, updated_at, title
+		FROM tasks
+		WHERE section_id IN (?` + strings.Repeat(",?", len(sectionIDs)-1) + `)
+		ORDER BY sort_order ASC`
+	args := make([]interface{}, len(sectionIDs))
+	for i, id := range sectionIDs {
+		args[i] = id
+	}
+	return query, args
+}
+
+// UpdateSectionsWithTasks godoc
+// @Summary      批次更新區塊與任務排序
+// @Description  依據傳入資料更新 sections 與 tasks 的 sort_order（title/content 不會變動）
+// @Tags         Plans
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        body  body  []models.SectionWithTasks  true  "排序資料"
+// @Success      200   {object}  map[string]string
+// @Failure      400   {object}  map[string]string
+// @Failure      500   {object}  map[string]string
+// @Router       /plans/sections-with-tasks [put]
+func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var sections []models.SectionWithTasks
+		if err := c.ShouldBindJSON(&sections); err != nil {
+			log.Printf("❌ Invalid input: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+			return
+		}
+
+		tx, err := db.Begin()
+		if err != nil {
+			log.Printf("❌ Failed to begin transaction: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "DB transaction error"})
+			return
+		}
+
+		// 更新 sections 的 sort_order
+		for i, s := range sections {
+			_, err := tx.Exec("UPDATE sections SET sort_order = ? WHERE id = ?", i+1, s.ID)
+			if err != nil {
+				tx.Rollback()
+				log.Printf("❌ Failed to update section sort_order: %v", err)
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update section sort"})
+				return
+			}
+
+			// 更新 tasks 的 sort_order
+			for j, t := range s.Tasks {
+				_, err := tx.Exec("UPDATE tasks SET sort_order = ? WHERE id = ?", j+1, t.ID)
+				if err != nil {
+					tx.Rollback()
+					log.Printf("❌ Failed to update task sort_order: %v", err)
+					c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task sort"})
+					return
+				}
+			}
+		}
+
+		if err := tx.Commit(); err != nil {
+			log.Printf("❌ Failed to commit transaction: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction commit failed"})
+			return
+		}
+
+		log.Println("✅ Sort orders updated successfully")
+		c.JSON(http.StatusOK, gin.H{"message": "Sort orders updated"})
 	}
 }

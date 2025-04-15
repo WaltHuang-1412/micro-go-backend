@@ -87,6 +87,7 @@ func main() {
 			// ✅ plans 分組
 			plans := protected.Group("/plans")
 			{
+
 				sections := plans.Group("/sections")
 				{
 					sections.GET("", handlers.GetSections(db))
@@ -97,6 +98,7 @@ func main() {
 					fmt.Println("✅ /api/v1/plans/sections/:id DELETE route ready")
 					sections.PUT("/:id", handlers.UpdateSection(db))
 					fmt.Println("✅ /api/v1/sections PUT route ready")
+
 				}
 				tasks := plans.Group("/tasks")
 				{
@@ -107,6 +109,10 @@ func main() {
 					tasks.DELETE("/:id", handlers.DeleteTask(db))
 					fmt.Println("✅ /api/v1/plans/tasks/:id DELETE route ready")
 				}
+				plans.GET("/sections-with-tasks", handlers.GetSectionsWithTasks(db))
+				fmt.Println("✅ /api/v1/plans/sections-with-tasks GET route ready")
+				plans.PUT("/sections-with-tasks", handlers.UpdateSectionsWithTasks(db))
+				fmt.Println("✅ /api/v1/plans/sections-with-tasks PUT route ready")
 			}
 		}
 	}
