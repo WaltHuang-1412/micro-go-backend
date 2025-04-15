@@ -19,7 +19,7 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: 🧹 Clean up system (safe)
+      - name: Clean up system (safe)
         run: |
           rm -rf ~/.cache/go-build || true
           docker system prune -af || true
@@ -31,7 +31,7 @@ jobs:
           df -h
 
       - name: 🚀 Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.10
+        uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.GCP_HOST }}
           username: ${{ secrets.GCP_USER }}
