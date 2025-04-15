@@ -98,6 +98,15 @@ func main() {
 					sections.PUT("/:id", handlers.UpdateSection(db))
 					fmt.Println("✅ /api/v1/sections PUT route ready")
 				}
+				tasks := plans.Group("/tasks")
+				{
+					tasks.POST("", handlers.CreateTask(db))
+					fmt.Println("✅ /api/v1/plans/tasks POST route ready")
+					tasks.PUT("/:id", handlers.UpdateTask(db))
+					fmt.Println("✅ /api/v1/plans/tasks/:id PUT route ready")
+					tasks.DELETE("/:id", handlers.DeleteTask(db))
+					fmt.Println("✅ /api/v1/plans/tasks/:id DELETE route ready")
+				}
 			}
 		}
 	}

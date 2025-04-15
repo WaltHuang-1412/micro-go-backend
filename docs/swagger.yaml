@@ -7,6 +7,21 @@ definitions:
     required:
     - title
     type: object
+  models.CreateTaskInput:
+    properties:
+      content:
+        type: string
+      is_completed:
+        type: boolean
+      section_id:
+        type: integer
+      title:
+        type: string
+    required:
+    - content
+    - section_id
+    - title
+    type: object
   models.Section:
     properties:
       created_at:
@@ -26,6 +41,15 @@ definitions:
         type: string
     required:
     - title
+    type: object
+  models.UpdateTaskInput:
+    properties:
+      content:
+        type: string
+      is_completed:
+        type: boolean
+      title:
+        type: string
     type: object
   models.UserLoginInput:
     properties:
@@ -216,6 +240,112 @@ paths:
       security:
       - BearerAuth: []
       summary: 更新區塊（Section 標題）
+      tags:
+      - Plans
+  /plans/tasks:
+    post:
+      consumes:
+      - application/json
+      description: 建立新的任務，並自動排序
+      parameters:
+      - description: 任務內容
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/models.CreateTaskInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 建立任務（Task）
+      tags:
+      - Plans
+  /plans/tasks/{id}:
+    delete:
+      description: 根據 ID 刪除任務，並重新排序同區塊內的任務
+      parameters:
+      - description: 任務 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 刪除任務（Task）
+      tags:
+      - Plans
+    put:
+      consumes:
+      - application/json
+      description: 根據 ID 更新任務內容
+      parameters:
+      - description: 任務 ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新資料
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateTaskInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: 更新任務（Task）
       tags:
       - Plans
   /profile:
