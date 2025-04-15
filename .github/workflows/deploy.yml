@@ -18,8 +18,19 @@ jobs:
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          
+      - name: 🧹 Clean up GitHub Runner (safe)
+        run: |
+          rm -rf ~/.cache/go-build || true
+          docker system prune -af || true
+          docker builder prune -af || true
+          sudo apt clean || true
+          sudo rm -rf /tmp/* || true
+          sudo rm -rf /var/log/*.gz || true
+          sudo journalctl --vacuum-time=2d || true
+          df -h
 
-      - name: 🚀 Deploy via SSH
+      - name: 🚀 Deploy to GCP via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.GCP_HOST }}
@@ -27,8 +38,17 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            set -e
+            echo "📦 Cleaning up remote system (except volumes)..."
+            rm -rf ~/.cache/go-build || true
+            docker system prune -af || true
+            docker builder prune -af || true
+            df -h
+
+            echo "📥 Pulling latest code..."
             cd ~/micro-go-backend
             git pull origin main
-            docker image prune -f
+
+            echo "🛠️ Rebuilding & restarting containers..."
             docker compose -f docker-compose.prod.yml down
             docker compose -f docker-compose.prod.yml up --build -d
