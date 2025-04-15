@@ -161,7 +161,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "回傳每個區塊與其所屬任務，依照排序排列",
+                "description": "回傳每個區塊與其所屬任務（僅限本人），依照排序排列",
                 "tags": [
                     "Plans"
                 ],
@@ -256,7 +256,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根據 ID 修改區塊的標題",
+                "description": "根據 ID 修改區塊的標題，僅限本人操作",
                 "consumes": [
                     "application/json"
                 ],
@@ -319,7 +319,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "根據 ID 刪除一個區塊，並重新排序其他區塊",
+                "description": "根據 ID 刪除一個區塊，並重新排序該使用者的其他區塊",
                 "tags": [
                     "Plans"
                 ],
@@ -461,6 +461,15 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {

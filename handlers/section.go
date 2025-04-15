@@ -30,9 +30,15 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// ✅ 取得目前最大的 sort_order
+		userID, exists := c.Get("user_id")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+			return
+		}
+
+		// ✅ 取得目前使用者的最大 sort_order
 		var maxSort sql.NullInt64
-		err := db.QueryRow("SELECT MAX(sort_order) FROM sections").Scan(&maxSort)
+		err := db.QueryRow("SELECT MAX(sort_order) FROM sections WHERE user_id = ?", userID).Scan(&maxSort)
 		if err != nil {
 			log.Printf("❌ Failed to query max sort: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get max sort"})
@@ -44,8 +50,8 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 			newSort = int(maxSort.Int64) + 1
 		}
 
-		// ✅ 插入資料
-		res, err := db.Exec("INSERT INTO sections (title, sort_order) VALUES (?, ?)", input.Title, newSort)
+		// ✅ 插入資料並加上 user_id
+		res, err := db.Exec("INSERT INTO sections (user_id, title, sort_order) VALUES (?, ?, ?)", userID, input.Title, newSort)
 		if err != nil {
 			log.Printf("❌ Failed to insert section: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create section"})
@@ -53,11 +59,12 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 		}
 
 		insertedID, _ := res.LastInsertId()
-		log.Printf("✅ Section created: ID=%d, Title=%s, Sort=%d", insertedID, input.Title, newSort)
+		log.Printf("✅ Section created: ID=%d, Title=%s, Sort=%d, UserID=%v", insertedID, input.Title, newSort, userID)
 		c.JSON(http.StatusOK, gin.H{
-			"id":    insertedID,
-			"title": input.Title,
-			"sort":  newSort,
+			"id":      insertedID,
+			"title":   input.Title,
+			"sort":    newSort,
+			"user_id": userID,
 		})
 	}
 }
@@ -73,7 +80,13 @@ func CreateSection(db *sql.DB) gin.HandlerFunc {
 // @Router       /plans/sections [get]
 func GetSections(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		rows, err := db.Query("SELECT id, title, sort_order, created_at, updated_at FROM sections ORDER BY sort_order ASC")
+		userID := c.GetInt64("user_id") // ✅ 直接取得 int64 型別的 user_id
+
+		rows, err := db.Query(`
+			SELECT id, title, sort_order, created_at, updated_at
+			FROM sections
+			WHERE user_id = ?
+			ORDER BY sort_order ASC`, userID)
 		if err != nil {
 			log.Printf("❌ Failed to query sections: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sections"})
@@ -97,7 +110,7 @@ func GetSections(db *sql.DB) gin.HandlerFunc {
 
 // DeleteSection godoc
 // @Summary      刪除區塊（Section）
-// @Description  根據 ID 刪除一個區塊，並重新排序其他區塊
+// @Description  根據 ID 刪除一個區塊，並重新排序該使用者的其他區塊
 // @Tags         Plans
 // @Security     BearerAuth
 // @Param        id  path  int  true  "Section ID"
@@ -107,40 +120,59 @@ func GetSections(db *sql.DB) gin.HandlerFunc {
 // @Router       /plans/sections/{id} [delete]
 func DeleteSection(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userID := c.GetInt64("user_id")
 		id := c.Param("id")
 
-		// 先刪除指定 section
-		_, err := db.Exec("DELETE FROM sections WHERE id = ?", id)
+		// 1️⃣ 驗證該 section 是否屬於目前登入者
+		var exists bool
+		err := db.QueryRow(`
+			SELECT EXISTS (
+				SELECT 1 FROM sections WHERE id = ? AND user_id = ?
+			)
+		`, id, userID).Scan(&exists)
+		if err != nil || !exists {
+			log.Printf("❌ Section %s not found or not owned by user %d", id, userID)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Section not found or unauthorized"})
+			return
+		}
+
+		// 2️⃣ 刪除該 section
+		_, err = db.Exec("DELETE FROM sections WHERE id = ? AND user_id = ?", id, userID)
 		if err != nil {
 			log.Printf("❌ Failed to delete section %s: %v", id, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete section"})
 			return
 		}
 
-		// 重新初始化排序變數
+		// 3️⃣ 重新初始化排序變數
 		_, err = db.Exec("SET @rank := 0")
 		if err != nil {
-			log.Printf("❌ Failed to reset rank variable: %v", err)
+			log.Printf("❌ Failed to reset rank variable")
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Section deleted, but failed to reorder"})
 			return
 		}
 
-		// 重新排序 sort_order 欄位
-		_, err = db.Exec("UPDATE sections SET sort_order = (@rank := @rank + 1) ORDER BY sort_order")
+		// 4️⃣ 重排該使用者的 sections 排序
+		_, err = db.Exec(`
+			UPDATE sections
+			SET sort_order = (@rank := @rank + 1)
+			WHERE user_id = ?
+			ORDER BY sort_order ASC
+		`, userID)
 		if err != nil {
-			log.Printf("❌ Failed to reorder sections: %v", err)
+			log.Printf("❌ Failed to reorder sections for user %d: %v", userID, err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Section deleted, but failed to reorder"})
 			return
 		}
 
-		log.Printf("✅ Section deleted and reordered: ID=%s", id)
+		log.Printf("✅ Section deleted and reordered: ID=%s, UserID=%d", id, userID)
 		c.JSON(http.StatusOK, gin.H{"message": "Section deleted and reordered"})
 	}
 }
 
 // UpdateSection godoc
 // @Summary      更新區塊（Section 標題）
-// @Description  根據 ID 修改區塊的標題
+// @Description  根據 ID 修改區塊的標題，僅限本人操作
 // @Tags         Plans
 // @Accept       json
 // @Produce      json
@@ -154,6 +186,7 @@ func DeleteSection(db *sql.DB) gin.HandlerFunc {
 func UpdateSection(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
+		userID := c.GetInt64("user_id")
 
 		var input models.UpdateSectionInput
 		if err := c.ShouldBindJSON(&input); err != nil {
@@ -162,14 +195,24 @@ func UpdateSection(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		_, err := db.Exec("UPDATE sections SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", input.Title, id)
+		// ✅ 確認該 section 是該使用者的
+		var exists bool
+		err := db.QueryRow("SELECT EXISTS (SELECT 1 FROM sections WHERE id = ? AND user_id = ?)", id, userID).Scan(&exists)
+		if err != nil || !exists {
+			log.Printf("❌ Section %s not found or not owned by user %d", id, userID)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Section not found or unauthorized"})
+			return
+		}
+
+		// ✅ 更新區塊
+		_, err = db.Exec("UPDATE sections SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?", input.Title, id, userID)
 		if err != nil {
 			log.Printf("❌ Failed to update section title: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update section"})
 			return
 		}
 
-		log.Printf("✅ Section updated: ID=%s, Title=%s", id, input.Title)
+		log.Printf("✅ Section updated: ID=%s, Title=%s, UserID=%d", id, input.Title, userID)
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Section updated",
 			"id":      id,
@@ -180,7 +223,7 @@ func UpdateSection(db *sql.DB) gin.HandlerFunc {
 
 // GetSectionsWithTasks godoc
 // @Summary      取得所有區塊（含任務）
-// @Description  回傳每個區塊與其所屬任務，依照排序排列
+// @Description  回傳每個區塊與其所屬任務（僅限本人），依照排序排列
 // @Tags         Plans
 // @Security     BearerAuth
 // @Success      200  {array}  models.SectionWithTasks
@@ -188,11 +231,14 @@ func UpdateSection(db *sql.DB) gin.HandlerFunc {
 // @Router       /plans/sections-with-tasks [get]
 func GetSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 1️⃣ 查詢所有 sections
+		userID := c.GetInt64("user_id")
+
+		// 1️⃣ 查詢所有屬於該 user 的 sections
 		sectionRows, err := db.Query(`
 			SELECT id, title, sort_order, created_at, updated_at
 			FROM sections
-			ORDER BY sort_order ASC`)
+			WHERE user_id = ?
+			ORDER BY sort_order ASC`, userID)
 		if err != nil {
 			log.Printf("❌ Failed to query sections: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch sections"})
@@ -277,6 +323,8 @@ func buildTaskQuery(sectionIDs []int64) (string, []interface{}) {
 // @Router       /plans/sections-with-tasks [put]
 func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		userID := c.GetInt64("user_id")
+
 		var sections []models.SectionWithTasks
 		if err := c.ShouldBindJSON(&sections); err != nil {
 			log.Printf("❌ Invalid input: %v", err)
@@ -291,9 +339,19 @@ func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-		// 更新 sections 的 sort_order
 		for i, s := range sections {
-			_, err := tx.Exec("UPDATE sections SET sort_order = ? WHERE id = ?", i+1, s.ID)
+			// ✅ 確認 section 屬於該 user
+			var ownerID int64
+			err := tx.QueryRow("SELECT user_id FROM sections WHERE id = ?", s.ID).Scan(&ownerID)
+			if err != nil || ownerID != userID {
+				tx.Rollback()
+				log.Printf("❌ Unauthorized section update or not found: section_id=%d, user_id=%d", s.ID, userID)
+				c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized section update"})
+				return
+			}
+
+			// ✅ 更新 section 的排序
+			_, err = tx.Exec("UPDATE sections SET sort_order = ? WHERE id = ?", i+1, s.ID)
 			if err != nil {
 				tx.Rollback()
 				log.Printf("❌ Failed to update section sort_order: %v", err)
@@ -301,9 +359,19 @@ func UpdateSectionsWithTasks(db *sql.DB) gin.HandlerFunc {
 				return
 			}
 
-			// 更新 tasks 的 sort_order
+			// ✅ 更新每個 task 的排序
 			for j, t := range s.Tasks {
-				_, err := tx.Exec("UPDATE tasks SET sort_order = ? WHERE id = ?", j+1, t.ID)
+				// 檢查 task 是否屬於該 section
+				var sectionID int64
+				err := tx.QueryRow("SELECT section_id FROM tasks WHERE id = ?", t.ID).Scan(&sectionID)
+				if err != nil || sectionID != s.ID {
+					tx.Rollback()
+					log.Printf("❌ Invalid task-section relation: task_id=%d, section_id=%d", t.ID, s.ID)
+					c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task-section relationship"})
+					return
+				}
+
+				_, err = tx.Exec("UPDATE tasks SET sort_order = ? WHERE id = ?", j+1, t.ID)
 				if err != nil {
 					tx.Rollback()
 					log.Printf("❌ Failed to update task sort_order: %v", err)

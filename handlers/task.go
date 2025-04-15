@@ -30,8 +30,20 @@ func CreateTask(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
+		userID := c.GetInt64("user_id")
+
+		// ✅ 驗證該 section 是否屬於該 user
+		var ownerID int64
+		err := db.QueryRow("SELECT user_id FROM sections WHERE id = ?", input.SectionID).Scan(&ownerID)
+		if err != nil || ownerID != userID {
+			log.Printf("❌ Unauthorized to access section_id=%d by user_id=%d", input.SectionID, userID)
+			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to add task to this section"})
+			return
+		}
+
+		// ✅ 查詢目前 section 下最大的 sort_order
 		var maxSort sql.NullInt64
-		err := db.QueryRow("SELECT MAX(sort_order) FROM tasks WHERE section_id = ?", input.SectionID).Scan(&maxSort)
+		err = db.QueryRow("SELECT MAX(sort_order) FROM tasks WHERE section_id = ?", input.SectionID).Scan(&maxSort)
 		if err != nil {
 			log.Printf("❌ Failed to get max sort: %v", err)
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get max sort"})
@@ -45,9 +57,9 @@ func CreateTask(db *sql.DB) gin.HandlerFunc {
 
 		now := time.Now()
 		res, err := db.Exec(`
-			INSERT INTO tasks (section_id, title, content, is_completed, sort_order, created_at, updated_at)
-			VALUES (?, ?, ?, false, ?, ?, ?)`,
-			input.SectionID, input.Title, input.Content, newSort, now, now,
+			INSERT INTO tasks (user_id, section_id, title, content, is_completed, sort_order, created_at, updated_at)
+			VALUES (?, ?, ?, ?, false, ?, ?, ?)`,
+			userID, input.SectionID, input.Title, input.Content, newSort, now, now,
 		)
 		if err != nil {
 			log.Printf("❌ Failed to insert task: %v", err)
@@ -79,19 +91,34 @@ func CreateTask(db *sql.DB) gin.HandlerFunc {
 // @Param        task  body  models.UpdateTaskInput true  "更新資料"
 // @Success      200   {object}  map[string]string
 // @Failure      400   {object}  map[string]string
+// @Failure      403   {object}  map[string]string
 // @Failure      500   {object}  map[string]string
 // @Router       /plans/tasks/{id} [put]
 func UpdateTask(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
-		var input models.UpdateTaskInput
+		userID := c.GetInt64("user_id") // ✅ 從 middleware 拿 user_id
 
+		var input models.UpdateTaskInput
 		if err := c.ShouldBindJSON(&input); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
-		_, err := db.Exec(`
+		// ✅ 確認 task 是否屬於該 user
+		var taskOwnerID int64
+		err := db.QueryRow("SELECT user_id FROM tasks WHERE id = ?", id).Scan(&taskOwnerID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Task not found"})
+			return
+		}
+		if taskOwnerID != userID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to modify this task"})
+			return
+		}
+
+		// ✅ 更新 task
+		_, err = db.Exec(`
 			UPDATE tasks
 			SET title = ?, content = ?, is_completed = ?, updated_at = CURRENT_TIMESTAMP
 			WHERE id = ?`, input.Title, input.Content, input.IsCompleted, id)
@@ -112,22 +139,36 @@ func UpdateTask(db *sql.DB) gin.HandlerFunc {
 // @Param        id   path  int  true  "任務 ID"
 // @Success      200  {object}  map[string]string
 // @Failure      400  {object}  map[string]string
+// @Failure      403  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /plans/tasks/{id} [delete]
 func DeleteTask(db *sql.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		id := c.Param("id")
+		userID := c.GetInt64("user_id") // ✅ 拿目前登入的 user_id
 
-		// 先查出 section_id
+		// ✅ 查出 task 所屬的 section_id 與擁有者 user_id
 		var sectionID int64
-		err := db.QueryRow("SELECT section_id FROM tasks WHERE id = ?", id).Scan(&sectionID)
+		var taskOwnerID int64
+		err := db.QueryRow(`
+			SELECT s.id, s.user_id
+			FROM tasks t
+			JOIN sections s ON t.section_id = s.id
+			WHERE t.id = ?`, id).Scan(&sectionID, &taskOwnerID)
 		if err != nil {
-			log.Printf("❌ Invalid task ID: %v", err)
+			log.Printf("❌ Invalid task ID or join failed: %v", err)
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
 			return
 		}
 
-		// 刪除該任務
+		// ✅ 檢查擁有權
+		if taskOwnerID != userID {
+			log.Printf("❌ Unauthorized to delete task ID=%s by user_id=%d", id, userID)
+			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to delete this task"})
+			return
+		}
+
+		// ✅ 刪除該任務
 		_, err = db.Exec("DELETE FROM tasks WHERE id = ?", id)
 		if err != nil {
 			log.Printf("❌ Failed to delete task %s: %v", id, err)
