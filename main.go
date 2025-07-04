@@ -33,52 +33,52 @@ func main() {
 	docs.SwaggerInfo.Schemes = []string{os.Getenv("SWAGGER_SCHEME")}
 
 	// 讀取 DB 設定
-	dbUser := os.Getenv("DB_USER")
-	dbPass := os.Getenv("DB_PASSWORD")
-	dbHost := os.Getenv("DB_HOST")
-	dbPort := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
+	databaseUser := os.Getenv("DB_USER")
+	databasePassword := os.Getenv("DB_PASSWORD")
+	databaseHost := os.Getenv("DB_HOST")
+	databasePort := os.Getenv("DB_PORT")
+	databaseName := os.Getenv("DB_NAME")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", dbUser, dbPass, dbHost, dbPort, dbName)
+	dataSourceName := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", databaseUser, databasePassword, databaseHost, databasePort, databaseName)
 
-	db, err := sql.Open("mysql", dsn)
-	if err != nil {
-		log.Fatal("❌ Failed to connect to DB:", err)
+	database, error := sql.Open("mysql", dataSourceName)
+	if error != nil {
+		log.Fatal("❌ Failed to connect to DB:", error)
 	}
-	defer db.Close()
+	defer database.Close()
 
 	// 自動重試 DB 連線
 	maxRetries := 10
-	for i := 1; i <= maxRetries; i++ {
-		if err := db.Ping(); err == nil {
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if error := database.Ping(); error == nil {
 			fmt.Println("✅ Connected to DB!")
 			break
 		} else {
-			fmt.Printf("⏳ Waiting for DB... (attempt %d/%d)\n", i, maxRetries)
+			fmt.Printf("⏳ Waiting for DB... (attempt %d/%d)\n", attempt, maxRetries)
 			time.Sleep(2 * time.Second)
 		}
-		if i == maxRetries {
+		if attempt == maxRetries {
 			log.Fatal("❌ DB not reachable after retrying.")
 		}
 	}
 
-	r := gin.Default()
-	r.Use(middlewares.CORSMiddleware())
+	router := gin.Default()
+	router.Use(middlewares.CORSMiddleware())
 
 	// Swagger UI
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	fmt.Println("✅ Swagger UI route registered at /swagger/*any")
 
 	// API 路由
-	api := r.Group("/api/v1")
+	apiRouter := router.Group("/api/v1")
 	{
-		api.POST("/register", handlers.Register(db))
+		apiRouter.POST("/register", handlers.Register(database))
 		fmt.Println("✅ /api/v1/register route ready")
 
-		api.POST("/login", handlers.Login(db))
+		apiRouter.POST("/login", handlers.Login(database))
 		fmt.Println("✅ /api/v1/login route ready")
 
-		protected := api.Group("")
+		protected := apiRouter.Group("")
 		protected.Use(middlewares.JWTAuthMiddleware())
 		{
 			protected.GET("/profile", handlers.Profile())
@@ -90,28 +90,28 @@ func main() {
 
 				sections := plans.Group("/sections")
 				{
-					sections.GET("", handlers.GetSections(db))
+					sections.GET("", handlers.GetSections(database))
 					fmt.Println("✅ /api/v1/plans/sections GET route ready")
-					sections.POST("", handlers.CreateSection(db))
+					sections.POST("", handlers.CreateSection(database))
 					fmt.Println("✅ /api/v1/plans/sections POST route ready")
-					sections.DELETE("/:id", handlers.DeleteSection(db))
+					sections.DELETE("/:id", handlers.DeleteSection(database))
 					fmt.Println("✅ /api/v1/plans/sections/:id DELETE route ready")
-					sections.PUT("/:id", handlers.UpdateSection(db))
+					sections.PUT("/:id", handlers.UpdateSection(database))
 					fmt.Println("✅ /api/v1/sections PUT route ready")
 
 				}
 				tasks := plans.Group("/tasks")
 				{
-					tasks.POST("", handlers.CreateTask(db))
+					tasks.POST("", handlers.CreateTask(database))
 					fmt.Println("✅ /api/v1/plans/tasks POST route ready")
-					tasks.PUT("/:id", handlers.UpdateTask(db))
+					tasks.PUT("/:id", handlers.UpdateTask(database))
 					fmt.Println("✅ /api/v1/plans/tasks/:id PUT route ready")
-					tasks.DELETE("/:id", handlers.DeleteTask(db))
+					tasks.DELETE("/:id", handlers.DeleteTask(database))
 					fmt.Println("✅ /api/v1/plans/tasks/:id DELETE route ready")
 				}
-				plans.GET("/sections-with-tasks", handlers.GetSectionsWithTasks(db))
+				plans.GET("/sections-with-tasks", handlers.GetSectionsWithTasks(database))
 				fmt.Println("✅ /api/v1/plans/sections-with-tasks GET route ready")
-				plans.PUT("/sections-with-tasks", handlers.UpdateSectionsWithTasks(db))
+				plans.PUT("/sections-with-tasks", handlers.UpdateSectionsWithTasks(database))
 				fmt.Println("✅ /api/v1/plans/sections-with-tasks PUT route ready")
 			}
 		}
@@ -124,5 +124,5 @@ func main() {
 
 	fmt.Println("🚀 Server running at http://localhost:" + port)
 	fmt.Println("🌐 Swagger UI available at http://localhost:" + port + "/swagger/index.html")
-	r.Run(":" + port)
+	router.Run(":" + port)
 }

@@ -11,43 +11,43 @@ import (
 )
 
 func JWTAuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
+	return func(context *gin.Context) {
+		authHeader := context.GetHeader("Authorization")
 		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing or invalid"})
+			context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing or invalid"})
 			return
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		secret := os.Getenv("JWT_SECRET")
 		if secret == "" {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "JWT secret not configured"})
+			context.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "JWT secret not configured"})
 			return
 		}
 
-		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+		token, error := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+			if _, isValid := token.Method.(*jwt.SigningMethodHMAC); !isValid {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
 			return []byte(secret), nil
 		})
 
-		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		if error != nil || !token.Valid {
+			context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			userIDFloat, ok := claims["user_id"].(float64)
-			if !ok {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid user_id in token"})
+		if claims, isValid := token.Claims.(jwt.MapClaims); isValid {
+			userIDFloat, isValid := claims["user_id"].(float64)
+			if !isValid {
+				context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid user_id in token"})
 				return
 			}
-			c.Set("user_id", int64(userIDFloat))
-			c.Set("username", claims["username"])
-			c.Next()
+			context.Set("user_id", int64(userIDFloat))
+			context.Set("username", claims["username"])
+			context.Next()
 		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid claims"})
+			context.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid claims"})
 		}
 	}
 }

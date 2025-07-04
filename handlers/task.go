@@ -21,32 +21,32 @@ import (
 // @Success      200   {object}  map[string]interface{}
 // @Failure      400   {object}  map[string]string
 // @Router       /plans/tasks [post]
-func CreateTask(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func CreateTask(database *sql.DB) gin.HandlerFunc {
+	return func(context *gin.Context) {
 		var input models.CreateTaskInput
-		if err := c.ShouldBindJSON(&input); err != nil {
-			log.Printf("❌ Invalid input: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		if error := context.ShouldBindJSON(&input); error != nil {
+			log.Printf("❌ Invalid input: %v", error)
+			context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
-		userID := c.GetInt64("user_id")
+		userIdentifier := context.GetInt64("user_id")
 
 		// ✅ 驗證該 section 是否屬於該 user
-		var ownerID int64
-		err := db.QueryRow("SELECT user_id FROM sections WHERE id = ?", input.SectionID).Scan(&ownerID)
-		if err != nil || ownerID != userID {
-			log.Printf("❌ Unauthorized to access section_id=%d by user_id=%d", input.SectionID, userID)
-			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to add task to this section"})
+		var ownerIdentifier int64
+		error := database.QueryRow("SELECT user_id FROM sections WHERE id = ?", input.SectionID).Scan(&ownerIdentifier)
+		if error != nil || ownerIdentifier != userIdentifier {
+			log.Printf("❌ Unauthorized to access section_id=%d by user_id=%d", input.SectionID, userIdentifier)
+			context.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to add task to this section"})
 			return
 		}
 
 		// ✅ 查詢目前 section 下最大的 sort_order
 		var maxSort sql.NullInt64
-		err = db.QueryRow("SELECT MAX(sort_order) FROM tasks WHERE section_id = ?", input.SectionID).Scan(&maxSort)
-		if err != nil {
-			log.Printf("❌ Failed to get max sort: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get max sort"})
+		error = database.QueryRow("SELECT MAX(sort_order) FROM tasks WHERE section_id = ?", input.SectionID).Scan(&maxSort)
+		if error != nil {
+			log.Printf("❌ Failed to get max sort: %v", error)
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get max sort"})
 			return
 		}
 
@@ -56,21 +56,21 @@ func CreateTask(db *sql.DB) gin.HandlerFunc {
 		}
 
 		now := time.Now()
-		res, err := db.Exec(`
+		result, error := database.Exec(`
 			INSERT INTO tasks (user_id, section_id, title, content, is_completed, sort_order, created_at, updated_at)
 			VALUES (?, ?, ?, ?, false, ?, ?, ?)`,
-			userID, input.SectionID, input.Title, input.Content, newSort, now, now,
+			userIdentifier, input.SectionID, input.Title, input.Content, newSort, now, now,
 		)
-		if err != nil {
-			log.Printf("❌ Failed to insert task: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
+		if error != nil {
+			log.Printf("❌ Failed to insert task: %v", error)
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create task"})
 			return
 		}
 
-		id, _ := res.LastInsertId()
-		log.Printf("✅ Task created: ID=%d, SectionID=%d", id, input.SectionID)
-		c.JSON(http.StatusOK, gin.H{
-			"id":           id,
+		identifier, _ := result.LastInsertId()
+		log.Printf("✅ Task created: ID=%d, SectionID=%d", identifier, input.SectionID)
+		context.JSON(http.StatusOK, gin.H{
+			"id":           identifier,
 			"section_id":   input.SectionID,
 			"title":        input.Title,
 			"content":      input.Content,
@@ -94,40 +94,40 @@ func CreateTask(db *sql.DB) gin.HandlerFunc {
 // @Failure      403   {object}  map[string]string
 // @Failure      500   {object}  map[string]string
 // @Router       /plans/tasks/{id} [put]
-func UpdateTask(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("id")
-		userID := c.GetInt64("user_id") // ✅ 從 middleware 拿 user_id
+func UpdateTask(database *sql.DB) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		identifier := context.Param("id")
+		userIdentifier := context.GetInt64("user_id") // ✅ 從 middleware 拿 user_id
 
 		var input models.UpdateTaskInput
-		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		if error := context.ShouldBindJSON(&input); error != nil {
+			context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
 		// ✅ 確認 task 是否屬於該 user
-		var taskOwnerID int64
-		err := db.QueryRow("SELECT user_id FROM tasks WHERE id = ?", id).Scan(&taskOwnerID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Task not found"})
+		var taskOwnerIdentifier int64
+		error := database.QueryRow("SELECT user_id FROM tasks WHERE id = ?", identifier).Scan(&taskOwnerIdentifier)
+		if error != nil {
+			context.JSON(http.StatusBadRequest, gin.H{"error": "Task not found"})
 			return
 		}
-		if taskOwnerID != userID {
-			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to modify this task"})
+		if taskOwnerIdentifier != userIdentifier {
+			context.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to modify this task"})
 			return
 		}
 
 		// ✅ 更新 task
-		_, err = db.Exec(`
+		_, error = database.Exec(`
 			UPDATE tasks
 			SET title = ?, content = ?, is_completed = ?, updated_at = CURRENT_TIMESTAMP
-			WHERE id = ?`, input.Title, input.Content, input.IsCompleted, id)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
+			WHERE id = ?`, input.Title, input.Content, input.IsCompleted, identifier)
+		if error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update task"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "Task updated"})
+		context.JSON(http.StatusOK, gin.H{"message": "Task updated"})
 	}
 }
 
@@ -142,42 +142,42 @@ func UpdateTask(db *sql.DB) gin.HandlerFunc {
 // @Failure      403  {object}  map[string]string
 // @Failure      500  {object}  map[string]string
 // @Router       /plans/tasks/{id} [delete]
-func DeleteTask(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		id := c.Param("id")
-		userID := c.GetInt64("user_id") // ✅ 拿目前登入的 user_id
+func DeleteTask(database *sql.DB) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		identifier := context.Param("id")
+		userIdentifier := context.GetInt64("user_id") // ✅ 拿目前登入的 user_id
 
 		// ✅ 查出 task 所屬的 section_id 與擁有者 user_id
-		var sectionID int64
-		var taskOwnerID int64
-		err := db.QueryRow(`
+		var sectionIdentifier int64
+		var taskOwnerIdentifier int64
+		error := database.QueryRow(`
 			SELECT s.id, s.user_id
 			FROM tasks t
 			JOIN sections s ON t.section_id = s.id
-			WHERE t.id = ?`, id).Scan(&sectionID, &taskOwnerID)
-		if err != nil {
-			log.Printf("❌ Invalid task ID or join failed: %v", err)
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
+			WHERE t.id = ?`, identifier).Scan(&sectionIdentifier, &taskOwnerIdentifier)
+		if error != nil {
+			log.Printf("❌ Invalid task ID or join failed: %v", error)
+			context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid task ID"})
 			return
 		}
 
 		// ✅ 檢查擁有權
-		if taskOwnerID != userID {
-			log.Printf("❌ Unauthorized to delete task ID=%s by user_id=%d", id, userID)
-			c.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to delete this task"})
+		if taskOwnerIdentifier != userIdentifier {
+			log.Printf("❌ Unauthorized to delete task ID=%s by user_id=%d", identifier, userIdentifier)
+			context.JSON(http.StatusForbidden, gin.H{"error": "Unauthorized to delete this task"})
 			return
 		}
 
 		// ✅ 刪除該任務
-		_, err = db.Exec("DELETE FROM tasks WHERE id = ?", id)
-		if err != nil {
-			log.Printf("❌ Failed to delete task %s: %v", id, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete task"})
+		_, error = database.Exec("DELETE FROM tasks WHERE id = ?", identifier)
+		if error != nil {
+			log.Printf("❌ Failed to delete task %s: %v", identifier, error)
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete task"})
 			return
 		}
 
 		// ✅ 單一 SQL 完成重排
-		_, err = db.Exec(`
+		_, error = database.Exec(`
 			UPDATE tasks t
 			JOIN (
 				SELECT id, ROW_NUMBER() OVER (ORDER BY sort_order) AS new_sort
@@ -186,14 +186,14 @@ func DeleteTask(db *sql.DB) gin.HandlerFunc {
 			) sorted
 			ON t.id = sorted.id
 			SET t.sort_order = sorted.new_sort;
-		`, sectionID)
-		if err != nil {
-			log.Printf("❌ Failed to reorder tasks in section %d: %v", sectionID, err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Task deleted, but failed to reorder"})
+		`, sectionIdentifier)
+		if error != nil {
+			log.Printf("❌ Failed to reorder tasks in section %d: %v", sectionIdentifier, error)
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Task deleted, but failed to reorder"})
 			return
 		}
 
-		log.Printf("✅ Task deleted and reordered: ID=%s", id)
-		c.JSON(http.StatusOK, gin.H{"message": "Task deleted and reordered"})
+		log.Printf("✅ Task deleted and reordered: ID=%s", identifier)
+		context.JSON(http.StatusOK, gin.H{"message": "Task deleted and reordered"})
 	}
 }

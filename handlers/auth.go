@@ -22,26 +22,26 @@ import (
 // @Success      200    {object}  map[string]string
 // @Failure      400    {object}  map[string]string
 // @Router       /login [post]
-func Login(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func Login(database *sql.DB) gin.HandlerFunc {
+	return func(context *gin.Context) {
 		var input struct {
 			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
 
-		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		if error := context.ShouldBindJSON(&input); error != nil {
+			context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
-		user, err := models.GetUserByEmail(db, input.Email)
-		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		user, error := models.GetUserByEmail(database, input.Email)
+		if error != nil {
+			context.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 			return
 		}
 
-		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password"})
+		if error := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password)); error != nil {
+			context.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect password"})
 			return
 		}
 
@@ -58,13 +58,13 @@ func Login(db *sql.DB) gin.HandlerFunc {
 			secret = "default_secret"
 		}
 
-		tokenString, err := token.SignedString([]byte(secret))
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Token signing failed"})
+		tokenString, error := token.SignedString([]byte(secret))
+		if error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Token signing failed"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"token": tokenString})
+		context.JSON(http.StatusOK, gin.H{"token": tokenString})
 	}
 }
 
@@ -78,22 +78,22 @@ func Login(db *sql.DB) gin.HandlerFunc {
 // @Success      200  {object}  map[string]string
 // @Failure      400  {object}  map[string]string
 // @Router       /register [post]
-func Register(db *sql.DB) gin.HandlerFunc {
-	return func(c *gin.Context) {
+func Register(database *sql.DB) gin.HandlerFunc {
+	return func(context *gin.Context) {
 		var input struct {
 			Username string `json:"username"`
 			Email    string `json:"email"`
 			Password string `json:"password"`
 		}
 
-		if err := c.ShouldBindJSON(&input); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		if error := context.ShouldBindJSON(&input); error != nil {
+			context.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
 			return
 		}
 
-		hashed, err := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Password hash failed"})
+		hashed, error := bcrypt.GenerateFromPassword([]byte(input.Password), bcrypt.DefaultCost)
+		if error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "Password hash failed"})
 			return
 		}
 
@@ -103,11 +103,11 @@ func Register(db *sql.DB) gin.HandlerFunc {
 			PasswordHash: string(hashed),
 		}
 
-		if err := models.CreateUser(db, &user); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
+		if error := models.CreateUser(database, &user); error != nil {
+			context.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"message": "User registered"})
+		context.JSON(http.StatusOK, gin.H{"message": "User registered"})
 	}
 }
