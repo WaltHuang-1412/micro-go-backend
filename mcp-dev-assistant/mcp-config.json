@@ -1,0 +1,24 @@
+{
+  "name": "go-dev-assistant",
+  "description": "Development assistant for Go backend projects",
+  "command": "node",
+  "args": ["dist/index.js"],
+  "tools": [
+    {
+      "name": "analyze_go_files",
+      "description": "Analyze Go files for potential improvements"
+    },
+    {
+      "name": "generate_tests", 
+      "description": "Generate test cases based on handlers"
+    },
+    {
+      "name": "analyze_docker_logs",
+      "description": "Analyze Docker container logs for issues"
+    },
+    {
+      "name": "check_api_health",
+      "description": "Check API endpoint health status"
+    }
+  ]
+}
