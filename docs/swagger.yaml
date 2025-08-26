@@ -115,6 +115,66 @@ info:
   title: Micro Backend API
   version: "1.0"
 paths:
+  /dev/latest-token:
+    get:
+      description: 返回最新的未使用密碼重設 token，僅供開發環境測試使用
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 獲取最新的重設密碼 token (僅供開發測試)
+      tags:
+      - Auth
+  /forgot-password:
+    post:
+      consumes:
+      - application/json
+      description: 發送重設密碼信件到用戶 email
+      parameters:
+      - description: Email 地址
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            email:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 忘記密碼
+      tags:
+      - Auth
   /login:
     post:
       consumes:
@@ -506,6 +566,47 @@ paths:
               type: string
             type: object
       summary: 註冊使用者
+      tags:
+      - Auth
+  /reset-password:
+    post:
+      consumes:
+      - application/json
+      description: 使用 token 重設用戶密碼
+      parameters:
+      - description: 重設資料
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            new_password:
+              type: string
+            token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: 重設密碼
       tags:
       - Auth
 securityDefinitions:

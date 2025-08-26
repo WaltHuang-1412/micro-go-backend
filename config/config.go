@@ -14,6 +14,9 @@ type Config struct {
 
 	// Swagger configuration
 	Swagger SwaggerConfig
+
+	// Email configuration
+	Email EmailConfig
 }
 
 type DBConfig struct {
@@ -35,6 +38,15 @@ type SwaggerConfig struct {
 	Scheme string
 }
 
+type EmailConfig struct {
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUsername string
+	SMTPPassword string
+	FromEmail    string
+	FromName     string
+}
+
 func LoadConfig() *Config {
 	return &Config{
 		DB: DBConfig{
@@ -52,6 +64,14 @@ func LoadConfig() *Config {
 		Swagger: SwaggerConfig{
 			Host:   getEnv("SWAGGER_HOST", "localhost:8088"),
 			Scheme: getEnv("SWAGGER_SCHEME", "http"),
+		},
+		Email: EmailConfig{
+			SMTPHost:     getEnv("SMTP_HOST", ""),
+			SMTPPort:     getEnv("SMTP_PORT", "587"),
+			SMTPUsername: getEnv("SMTP_USERNAME", ""),
+			SMTPPassword: getEnv("SMTP_PASSWORD", ""),
+			FromEmail:    getEnv("FROM_EMAIL", ""),
+			FromName:     getEnv("FROM_NAME", ""),
 		},
 	}
 }

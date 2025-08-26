@@ -42,3 +42,22 @@ func GetUserByEmail(database *sql.DB, email string) (*User, error) {
 	}
 	return &user, nil
 }
+
+func GetUserByID(database *sql.DB, id int) (*User, error) {
+	row := database.QueryRow("SELECT id, username, email, password_hash, created_at FROM users WHERE id = ?", id)
+
+	var user User
+	error := row.Scan(&user.ID, &user.Username, &user.Email, &user.PasswordHash, &user.CreatedAt)
+	if error != nil {
+		return nil, error
+	}
+	return &user, nil
+}
+
+func UpdateUserPassword(database *sql.DB, userID int, newPasswordHash string) error {
+	_, error := database.Exec(
+		"UPDATE users SET password_hash = ? WHERE id = ?",
+		newPasswordHash, userID,
+	)
+	return error
+}

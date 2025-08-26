@@ -4,12 +4,17 @@ import (
 	"database/sql"
 
 	"github.com/gin-gonic/gin"
+	"github.com/Walter1412/micro-backend/config"
 	"github.com/Walter1412/micro-backend/middlewares"
+	"github.com/Walter1412/micro-backend/services"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func RegisterRoutes(router *gin.Engine, database *sql.DB) {
+func RegisterRoutes(router *gin.Engine, database *sql.DB, cfg *config.Config) {
+	// Initialize services
+	emailService := services.NewEmailService(cfg.Email)
+
 	// CORS middleware
 	router.Use(middlewares.CORSMiddleware())
 
@@ -20,7 +25,7 @@ func RegisterRoutes(router *gin.Engine, database *sql.DB) {
 	apiRouter := router.Group("/api/v1")
 	
 	// Public routes (no auth required)
-	RegisterAuthRoutes(apiRouter, database)
+	RegisterAuthRoutes(apiRouter, database, emailService)
 
 	// Protected routes (JWT auth required)
 	protected := apiRouter.Group("")

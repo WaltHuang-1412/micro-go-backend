@@ -55,7 +55,7 @@ func main() {
 
 	// 初始化路由
 	router := gin.Default()
-	routes.RegisterRoutes(router, database)
+	routes.RegisterRoutes(router, database, configuration)
 
 	fmt.Println("🚀 Server running at http://localhost:" + configuration.Server.Port)
 	fmt.Println("🌐 Swagger UI available at http://localhost:" + configuration.Server.Port + "/swagger/index.html")
