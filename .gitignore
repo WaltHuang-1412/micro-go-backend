@@ -31,6 +31,47 @@ Thumbs.db
 
 # 環境變數檔案（❌ 請勿提交）
 .env
+.env.local
+.env.production
+.env.development
+.env.test
+*.env
+
+# 敏感設定檔案
+config.json
+secrets.yml
+*.key
+*.pem
+*.cert
+*.crt
 
 # Docker 資料卷（視情況可加）
 volumes/
+data/
+
+# 測試覆蓋率報告
+coverage.out
+coverage.html
+*.coverage
+
+# 安全掃描結果
+security-report.*
+vulnerability-scan.*
+
+# Node.js (for MCP development)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# MacOS
+*.DS_Store
+
+# 備份檔案
+*.bak
+*.backup
+*.orig
+
+# 臨時檔案
+*.tmp
+*.temp
