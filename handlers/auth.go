@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/Walter1412/micro-backend/models"
@@ -106,6 +107,17 @@ func Register(database *sql.DB) gin.HandlerFunc {
 		}
 
 		if error := models.CreateUser(database, &user); error != nil {
+			// 解析 MySQL 重複鍵錯誤
+			if strings.Contains(error.Error(), "Duplicate entry") {
+				if strings.Contains(error.Error(), "username") {
+					context.JSON(http.StatusConflict, gin.H{"error": "Username already exists"})
+				} else if strings.Contains(error.Error(), "email") {
+					context.JSON(http.StatusConflict, gin.H{"error": "Email already exists"})
+				} else {
+					context.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
+				}
+				return
+			}
 			context.JSON(http.StatusInternalServerError, gin.H{"error": "User creation failed"})
 			return
 		}

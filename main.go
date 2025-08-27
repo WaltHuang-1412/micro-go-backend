@@ -26,6 +26,11 @@ import (
 func main() {
 	// 載入配置
 	configuration := config.LoadConfig()
+	
+	// 設定 Gin 模式（生產環境使用 release 模式）
+	if configuration.Server.Port == "8080" { // 假設生產環境用 8080
+		gin.SetMode(gin.ReleaseMode)
+	}
 
 	// 設定 Swagger 變數
 	docs.SwaggerInfo.Host = configuration.Swagger.Host
@@ -55,6 +60,10 @@ func main() {
 
 	// 初始化路由
 	router := gin.Default()
+	
+	// 設定信任的代理（安全配置）
+	router.SetTrustedProxies([]string{"127.0.0.1", "::1"}) // 只信任本地代理
+	
 	routes.RegisterRoutes(router, database, configuration)
 
 	fmt.Println("🚀 Server running at http://localhost:" + configuration.Server.Port)

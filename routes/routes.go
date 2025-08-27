@@ -17,6 +17,9 @@ func RegisterRoutes(router *gin.Engine, database *sql.DB, cfg *config.Config) {
 
 	// CORS middleware
 	router.Use(middlewares.CORSMiddleware())
+	
+	// Rate limiting middleware
+	router.Use(middlewares.RateLimitMiddleware())
 
 	// Swagger UI
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
